@@ -20,6 +20,8 @@ library(doParallel)
 library(dplyr)
 library(tidyr)
 library(tidyverse)
+library(stringr)
+library(Biostrings)
 
 ##############################################################################
 ####ESCOGER CARPETA DE TRABAJO################################################
@@ -43,7 +45,7 @@ datos<- bold_seqspec(taxon = c("Pilumnus", "Microphrys", "Acanthonyx petiverii",
                                "Synalpheus"), format = "tsv")
 
 
-###############################################################################
+View###############################################################################
 #ESCOGER LA DATA DE MI INTERES#################################################
 datos_coi5p <- datos %>%
   filter(markercode == "COI-5P") %>% #INDICAR EL MARCADOR DE INTRES
@@ -56,6 +58,7 @@ datos_coi5p <- datos %>%
          country, 
          province_state, 
          trace_names,
+         trace_links,
          nucleotides)
 
 
@@ -150,6 +153,173 @@ datos_coi5p_fil <- datos_coi5p %>%
 ##########################################################################
 ###########EXPORTAR EN FORMATO EXCEL######################################
 write.csv(datos_coi5p_fil, "datos_coi5p_fil.csv", row.names = FALSE) 
+
+
+##########################################################################
+#########################LLENAR ESPACION VACIOS EN ESPECIE################
+datos_coi5p_fil_2 <- datos_coi5p_fil %>%
+  mutate(species_name = if_else(species_name == "" | is.na(species_name), 
+                                genus_name, species_name))
+
+
+
+#########################################################################
+#######ELIMINAR LOS TAXAS QUE NO SON DE MI INTERES######################
+datos_coi5p_fil_3 <- datos_coi5p_fil_2 %>%
+  filter(!genus_name %in% c("Synalpheus", "Acanthonyx", "Pilumnus"))
+
+
+
+#########################################################################
+#########################################################################
+#########################################################################
+#########################################################################
+###DESCARGAR LOS ELECTROFEROGRAMAS#######################################
+#########################################################################
+#########################################################################
+#DESCARGAR TODOS MIS ELECTROFEROGRAMAS###################################
+#########################################################################
+for (i in 1:nrow(datos_coi5p_fil_3)) {
+  if (!is.na(datos_coi5p_fil_3$trace_links[i]) && datos_coi5p_fil_3$trace_links[i] != "") {
+    links <- strsplit(datos_coi5p_fil_3$trace_links[i], "\\|")[[1]]  # Separar links
+    processid <- datos_coi5p_fil_3$processid[i]  # Obtener el processid
+    
+    for (j in seq_along(links)) {
+      url <- links[j]
+      file_name <- paste0("bold_traces/", processid, "_", j, ".ab1")  # Nombre del archivo
+      
+      download.file(url, file_name, mode = "wb")
+      cat("Descargado:", file_name, "\n")
+    }
+  }
+}
+
+
+
+# Definir el directorio con los archivos .ab1
+setwd("C:/Users/GERARDO/Desktop/bold/bold_traces")
+
+
+# Listar todos los archivos .ab1 en la carpeta
+archivos_ab1 <- list.files(pattern = "\\.ab1$", full.names = TRUE)
+
+
+# Función para calcular la calidad de cada archivo
+calcular_calidad <- function(archivo) {
+  tryCatch({
+    trace <- read.abif(archivo)  # Leer el archivo .ab1
+    mean_quality <- mean(trace@data$PCON.1, na.rm = TRUE)  # Calcular calidad promedio
+    return(mean_quality)
+  }, error = function(e) {
+    cat("Error con:", archivo, "\n")  # Si hay un error, mostrar mensaje
+    return(NA)
+  })
+}
+
+
+# Aplicar la función a todos los archivos y guardar en un data.frame
+resultados_calidad <- data.frame(
+  archivo = archivos_ab1,
+  mean_quality = sapply(archivos_ab1, calcular_calidad)
+)
+
+print(resultados_calidad)
+
+
+
+
+# Filtrar solo los archivos que terminan en "_1.ab1" o "_2.ab1"
+resultados_filtrados <- resultados_calidad %>%
+  filter(grepl("_1\\.ab1$|_2\\.ab1$", archivo)) %>%
+  mutate(processid = gsub("_\\d+\\.ab1", "", archivo))  # Extraer el identificador sin _1 o _2
+
+
+# Reestructurar los datos para separar calidadF (Forward) y calidadR (Reverse)
+resultados_wide <- resultados_filtrados %>%
+  mutate(tipo = ifelse(grepl("_1\\.ab1$", archivo), "calidadF", "calidadR")) %>%
+  select(processid, tipo, mean_quality) %>%
+  pivot_wider(names_from = tipo, values_from = mean_quality)
+
+resultados_wide <- resultados_wide %>%
+  mutate(processid = gsub("^\\./", "", processid))  # Eliminar el prefijo "./"
+
+
+# Unir los datos con `datos_coi5p_fil_3` según `processid`
+datos_coi5p_fil_4 <- datos_coi5p_fil_3 %>%
+  left_join(resultados_wide, by = "processid")
+
+#usar el critero de filtro
+datos_coi5p_fil_5 <- datos_coi5p_fil_4%>%
+  filter(is.na(calidadF) | calidadF > 30)
+
+
+# Guardar el data.frame en un archivo CSV (compatible con Excel)
+setwd("C:/Users/GERARDO/Desktop/bold")
+write.csv(datos_coi5p_fil_5, "datos_coi5p_fil_5.csv", row.names = FALSE)
+
+
+
+
+#########################################################################
+##################extraer los fastas#####################################
+# Generar líneas en formato FASTA ordenadas por species_name
+fasta_lines <- datos_coi5p_fil_2 %>%
+  arrange(species_name) %>%  # Ordenar alfabéticamente por species_name
+  mutate(fasta_header = paste0(">", processid, "|", species_name, "|", country)) %>%
+  select(fasta_header, nucleotides) %>%
+  apply(1, paste, collapse = "\n") %>%
+  paste(collapse = "\n\n")  # Agregar un espacio entre secuencias
+
+
+#Aqui se guardan todas las secuencias de mi interes. 
+writeLines(fasta_lines, "secuencias.fasta")
+
+# Generar líneas en formato FASTA ordenadas por cirripedos
+fasta_lines_cirripedos <- datos_coi5p_fil_5 %>%
+  filter(genus_name == "Balanus" | genus_name == "Conopea")%>%
+  arrange(species_name) %>%  # Ordenar alfabéticamente por species_name
+  mutate(fasta_header = paste0(">", processid, "|", species_name, "|", country)) %>%
+  select(fasta_header, nucleotides) %>%
+  apply(1, paste, collapse = "\n") %>%
+  paste(collapse = "\n\n")  # Agregar un espacio entre secuencias
+writeLines(fasta_lines_cirripedos, "secuencias_cirripedos.fasta")
+
+
+
+
+#Generar líneas en formato FASTA ordenadas por microphrys
+fasta_lines_microphrys <- datos_coi5p_fil_5 %>%
+  filter(genus_name == "Microphrys")%>%
+  arrange(species_name) %>%  # Ordenar alfabéticamente por species_name
+  mutate(fasta_header = paste0(">", processid, "|", species_name, "|", country)) %>%
+  select(fasta_header, nucleotides) %>%
+  apply(1, paste, collapse = "\n") %>%
+  paste(collapse = "\n\n")  # Agregar un espacio entre secuencias
+writeLines(fasta_lines_microphrys, "secuencias_microphrys.fasta")
+
+
+
+
+
+#Geenerar líneas en formato FASTA ordenadas por stenothoe
+fasta_lines_stenothoe <- datos_coi5p_fil_5 %>%
+  filter(genus_name == "Stenothoe")%>%
+  arrange(species_name) %>%  # Ordenar alfabéticamente por species_name
+  mutate(fasta_header = paste0(">", processid, "|", species_name, "|", country)) %>%
+  select(fasta_header, nucleotides) %>%
+  apply(1, paste, collapse = "\n") %>%
+  paste(collapse = "\n\n")  # Agregar un espacio entre secuencias
+writeLines(fasta_lines_stenothoe, "secuencias_stenothoe.fasta")
+
+
+
+
+
+
+
+
+
+
 
 
 
