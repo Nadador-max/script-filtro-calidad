@@ -30,27 +30,20 @@ setwd("C:/Users/GERARDO/Desktop/bold")
 
 ##############################################################################
 #IMPORTAR DATOS BOLD EN FORMATO TSV###########################################
-#01 SOLO GRUPO
-datos_pilum <- bold_seqspec(taxon = "Pilumnus", format = "tsv")
-datos_micro <- bold_seqspec(taxon = "Microphrys", format = "tsv")
-datos_acan <- bold_seqspec(taxon = "Acanthonyx petiverii", format = "tsv")
-datos_conopea <- bold_seqspec(taxon = "Conopea", format = "tsv")
-datos_bal <- bold_seqspec(taxon = "Balanus", format = "tsv")
-datos_ste <- bold_seqspec(taxon = "Stenothoe", format = "tsv")
-datos_syna <- bold_seqspec(taxon = "Synalpheus", format = "tsv")
-
 #VARIOS GRUPOS
-datos<- bold_seqspec(taxon = c("Pilumnus", "Microphrys", "Acanthonyx petiverii", 
-                               "Conopea", "Balanus", "Stenothoe", 
-                               "Synalpheus"), format = "tsv")
+datosc<- bold_seqspec(taxon = c("Caprella scaura",
+                               "Caprella scauroides",
+                               "Caprella californica"), format = "tsv")
 
 
-View###############################################################################
+
+
+###############################################################################
 #ESCOGER LA DATA DE MI INTERES#################################################
-datos_coi5p <- datos %>%
+caprella_1<- caprella %>%
   filter(markercode == "COI-5P") %>% #INDICAR EL MARCADOR DE INTRES
   mutate(valid_nucleotide_count = str_count(nucleotides, "[^-]")) %>%  # Contar solo caracteres distintos de "-"
-  filter(valid_nucleotide_count > 500) %>%  # Filtrar por cantidad de caracteres sin contar guiones
+  filter(valid_nucleotide_count > 599) %>%  # Filtrar por cantidad de caracteres sin contar guiones
   select(processid,
          genbank_accession, 
          genus_name, 
@@ -60,7 +53,6 @@ datos_coi5p <- datos %>%
          trace_names,
          trace_links,
          nucleotides)
-
 
 ##################################################################################
 #IMPORTAR EL GenBank ID DEL NCBI USANDO EL "genbank_accession" ###########################
@@ -84,7 +76,7 @@ get_genbank_id <- function(accession) {
 }
 
 #Obtener GenBank ID para cada número de acceso en la columna "genbank_accession"
-datos_coi5p$genbank_id <- sapply(datos_coi5p$genbank_accession, get_genbank_id)
+caprella_1$genbank_id <- sapply(caprella_1$genbank_accession, get_genbank_id)
 
 
 
@@ -93,14 +85,14 @@ datos_coi5p$genbank_id <- sapply(datos_coi5p$genbank_accession, get_genbank_id)
 ################################################################################
 #OBTENER DATA DEL FORMATO GENBANK DE LAS SECUENCIAS DE MI INTERES###############
 # Filtrar solo IDs válidos (sin NA ni valores vacíos)
-valid_ids <- na.omit(datos_coi5p$genbank_id)
+valid_ids <- na.omit(caprella_1$genbank_id)
 valid_ids <- valid_ids[valid_ids != ""]  # Quitar valores vacíos
 
 
 # Inicializar las nuevas columnas en datos_coi5p con NA
-datos_coi5p$Title <- NA
-datos_coi5p$Authors <- NA
-datos_coi5p$Journal <- NA
+caprella_1$Title <- NA
+caprella_1$Authors <- NA
+caprella_1$Journal <- NA
 
 # Recorrer solo los IDs válidos
 for (i in seq_along(valid_ids)) {
@@ -137,39 +129,29 @@ for (i in seq_along(valid_ids)) {
     
     
     # Guardar resultados en las columnas de datos_coi5p (asignar en la fila correcta)
-    datos_coi5p$Title[datos_coi5p$genbank_id == id] <- title
-    datos_coi5p$Authors[datos_coi5p$genbank_id == id] <- authors
-    datos_coi5p$Journal[datos_coi5p$genbank_id == id] <- journal
+    caprella_1$Title[caprella_1$genbank_id == id] <- title
+    caprella_1$Authors[caprella_1$genbank_id == id] <- authors
+    caprella_1$Journal[caprella_1$genbank_id == id] <- journal
   }
 }
 
 
 ##########################################################################
 ####FILTRAR SECUENCIAS ASOCIADAS A ARTICULOS CIENTIFICOS##################
-datos_coi5p_fil <- datos_coi5p %>%
+caprella_2 <- caprella_1 %>%
   filter(!(trace_names == "" & Journal == "Unpublished"))
 
 
-##########################################################################
-###########EXPORTAR EN FORMATO EXCEL######################################
-write.csv(datos_coi5p_fil, "datos_coi5p_fil.csv", row.names = FALSE) 
 
 
 ##########################################################################
 #########################LLENAR ESPACION VACIOS EN ESPECIE################
-datos_coi5p_fil_2 <- datos_coi5p_fil %>%
+datos_coi5p_1 <- datos_coi5p_1 %>%
   mutate(species_name = if_else(species_name == "" | is.na(species_name), 
                                 genus_name, species_name))
 
 
-
-#########################################################################
-#######ELIMINAR LOS TAXAS QUE NO SON DE MI INTERES######################
-datos_coi5p_fil_3 <- datos_coi5p_fil_2 %>%
-  filter(!genus_name %in% c("Synalpheus", "Acanthonyx", "Pilumnus"))
-
-
-
+##SIJORGECREEQUEDEBERIAGREGARMASGRUPOSTAXONOMICO-DEBERIAEMPEZARAQUI
 #########################################################################
 #########################################################################
 #########################################################################
@@ -179,10 +161,10 @@ datos_coi5p_fil_3 <- datos_coi5p_fil_2 %>%
 #########################################################################
 #DESCARGAR TODOS MIS ELECTROFEROGRAMAS###################################
 #########################################################################
-for (i in 1:nrow(datos_coi5p_fil_3)) {
-  if (!is.na(datos_coi5p_fil_3$trace_links[i]) && datos_coi5p_fil_3$trace_links[i] != "") {
-    links <- strsplit(datos_coi5p_fil_3$trace_links[i], "\\|")[[1]]  # Separar links
-    processid <- datos_coi5p_fil_3$processid[i]  # Obtener el processid
+for (i in 1:nrow(datos_coi5p_1)) {
+  if (!is.na(datos_coi5p_1$trace_links[i]) && datos_coi5p_1$trace_links[i] != "") {
+    links <- strsplit(datos_coi5p_1$trace_links[i], "\\|")[[1]]  # Separar links
+    processid <- datos_coi5p_1$processid[i]  # Obtener el processid
     
     for (j in seq_along(links)) {
       url <- links[j]
@@ -245,17 +227,17 @@ resultados_wide <- resultados_wide %>%
 
 
 # Unir los datos con `datos_coi5p_fil_3` según `processid`
-datos_coi5p_fil_4 <- datos_coi5p_fil_3 %>%
+datos_coi5p_2 <- datos_coi5p_1 %>%
   left_join(resultados_wide, by = "processid")
 
 #usar el critero de filtro
-datos_coi5p_fil_5 <- datos_coi5p_fil_4%>%
+datos_coi5p_3 <- datos_coi5p_2%>%
   filter(is.na(calidadF) | calidadF > 30)
-
+View(datos_coi5p_2)
 
 # Guardar el data.frame en un archivo CSV (compatible con Excel)
 setwd("C:/Users/GERARDO/Desktop/bold")
-write.csv(datos_coi5p_fil_5, "datos_coi5p_fil_5.csv", row.names = FALSE)
+write.csv(datos_coi5p_3, "datos_coi5p_3.csv", row.names = FALSE)
 
 
 
@@ -263,9 +245,9 @@ write.csv(datos_coi5p_fil_5, "datos_coi5p_fil_5.csv", row.names = FALSE)
 #########################################################################
 ##################extraer los fastas#####################################
 # Generar líneas en formato FASTA ordenadas por species_name
-fasta_lines <- datos_coi5p_fil_2 %>%
+fasta_lines <- datos_coi5p_3 %>%
   arrange(species_name) %>%  # Ordenar alfabéticamente por species_name
-  mutate(fasta_header = paste0(">", processid, "|", species_name, "|", country)) %>%
+  mutate(fasta_header = paste0(">", genus_name, "_", species_name, "_", country, "_", processid)) %>%
   select(fasta_header, nucleotides) %>%
   apply(1, paste, collapse = "\n") %>%
   paste(collapse = "\n\n")  # Agregar un espacio entre secuencias
@@ -275,10 +257,13 @@ fasta_lines <- datos_coi5p_fil_2 %>%
 writeLines(fasta_lines, "secuencias.fasta")
 
 # Generar líneas en formato FASTA ordenadas por cirripedos
-fasta_lines_cirripedos <- datos_coi5p_fil_5 %>%
-  filter(genus_name == "Balanus" | genus_name == "Conopea")%>%
+fasta_lines_cirripedos <- datos_coi5p_3 %>%
+  filter(genus_name == "Membranobalanus" | genus_name == "Conopea" | 
+           genus_name == "Striatobalanus" |
+           genus_name == "Solidobalanus"  |
+           genus_name == "Chirona")%>%
   arrange(species_name) %>%  # Ordenar alfabéticamente por species_name
-  mutate(fasta_header = paste0(">", processid, "|", species_name, "|", country)) %>%
+  mutate(fasta_header = paste0(">", genus_name, "_", species_name, "_", country, "_", processid)) %>%
   select(fasta_header, nucleotides) %>%
   apply(1, paste, collapse = "\n") %>%
   paste(collapse = "\n\n")  # Agregar un espacio entre secuencias
@@ -288,10 +273,10 @@ writeLines(fasta_lines_cirripedos, "secuencias_cirripedos.fasta")
 
 
 #Generar líneas en formato FASTA ordenadas por microphrys
-fasta_lines_microphrys <- datos_coi5p_fil_5 %>%
+fasta_lines_microphrys <- datos_coi5p_3 %>%
   filter(genus_name == "Microphrys")%>%
   arrange(species_name) %>%  # Ordenar alfabéticamente por species_name
-  mutate(fasta_header = paste0(">", processid, "|", species_name, "|", country)) %>%
+  mutate(fasta_header = paste0(">", genus_name, "_", species_name, "_", country, "_", processid)) %>%
   select(fasta_header, nucleotides) %>%
   apply(1, paste, collapse = "\n") %>%
   paste(collapse = "\n\n")  # Agregar un espacio entre secuencias
@@ -302,15 +287,40 @@ writeLines(fasta_lines_microphrys, "secuencias_microphrys.fasta")
 
 
 #Geenerar líneas en formato FASTA ordenadas por stenothoe
-fasta_lines_stenothoe <- datos_coi5p_fil_5 %>%
+fasta_lines_stenothoe <- datos_coi5p_3 %>%
   filter(genus_name == "Stenothoe")%>%
   arrange(species_name) %>%  # Ordenar alfabéticamente por species_name
-  mutate(fasta_header = paste0(">", processid, "|", species_name, "|", country)) %>%
+  mutate(fasta_header = paste0(">", genus_name, "_", species_name, "_", country, "_", processid)) %>%
   select(fasta_header, nucleotides) %>%
   apply(1, paste, collapse = "\n") %>%
   paste(collapse = "\n\n")  # Agregar un espacio entre secuencias
 writeLines(fasta_lines_stenothoe, "secuencias_stenothoe.fasta")
 
+
+
+#Geenerar líneas en formato FASTA ordenadas por stenothoe
+fasta_lines_pilumnus <- datos_coi5p_3 %>%
+  filter(genus_name == "Pilumnus")%>%
+  arrange(species_name) %>%  # Ordenar alfabéticamente por species_name
+  mutate(fasta_header = paste0(">", genus_name, "_", species_name, "_", country, "_", processid)) %>%
+  select(fasta_header, nucleotides) %>%
+  apply(1, paste, collapse = "\n") %>%
+  paste(collapse = "\n\n")  # Agregar un espacio entre secuencias
+writeLines(fasta_lines_pilumnus, "fasta_lines_pilumnus.fasta")
+
+
+
+#Geenerar líneas en formato FASTA ordenadas por stenothoe
+fasta_lines_caprella <- caprella_1 %>%
+  filter(genus_name == "Caprella")%>%
+  arrange(species_name) %>%  # Ordenar alfabéticamente por species_name
+  mutate(fasta_header = paste0(">", genus_name, "_", species_name, "_", country, "_", processid)) %>%
+  select(fasta_header, nucleotides) %>%
+  apply(1, paste, collapse = "\n") %>%
+  paste(collapse = "\n\n")  # Agregar un espacio entre secuencias
+writeLines(fasta_lines_caprella, "fasta_lines_caprella.fasta")
+
+setwd("C:/Users/GERARDO/Desktop/bold")
 
 
 
