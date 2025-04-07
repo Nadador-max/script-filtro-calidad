@@ -30,17 +30,15 @@ setwd("C:/Users/GERARDO/Desktop/bold")
 
 ##############################################################################
 #IMPORTAR DATOS BOLD EN FORMATO TSV###########################################
-#VARIOS GRUPOS
-datosc<- bold_seqspec(taxon = c("Caprella scaura",
-                               "Caprella scauroides",
-                               "Caprella californica"), format = "tsv")
+#Usando como ejempleo el género Conopea
+datos_coi5p<- bold_seqspec(taxon = c("Conopea"), format = "tsv")
 
 
 
 
 ###############################################################################
 #ESCOGER LA DATA DE MI INTERES#################################################
-caprella_1<- caprella %>%
+datos_coi5p_1<- datos_coi5p %>%
   filter(markercode == "COI-5P") %>% #INDICAR EL MARCADOR DE INTRES
   mutate(valid_nucleotide_count = str_count(nucleotides, "[^-]")) %>%  # Contar solo caracteres distintos de "-"
   filter(valid_nucleotide_count > 599) %>%  # Filtrar por cantidad de caracteres sin contar guiones
@@ -76,7 +74,7 @@ get_genbank_id <- function(accession) {
 }
 
 #Obtener GenBank ID para cada número de acceso en la columna "genbank_accession"
-caprella_1$genbank_id <- sapply(caprella_1$genbank_accession, get_genbank_id)
+datos_coi5p_1$genbank_id <- sapply(datos_coi5p_1$genbank_accession, get_genbank_id)
 
 
 
@@ -85,14 +83,14 @@ caprella_1$genbank_id <- sapply(caprella_1$genbank_accession, get_genbank_id)
 ################################################################################
 #OBTENER DATA DEL FORMATO GENBANK DE LAS SECUENCIAS DE MI INTERES###############
 # Filtrar solo IDs válidos (sin NA ni valores vacíos)
-valid_ids <- na.omit(caprella_1$genbank_id)
+valid_ids <- na.omit(datos_coi5p_1$genbank_id)
 valid_ids <- valid_ids[valid_ids != ""]  # Quitar valores vacíos
 
 
 # Inicializar las nuevas columnas en datos_coi5p con NA
-caprella_1$Title <- NA
-caprella_1$Authors <- NA
-caprella_1$Journal <- NA
+datos_coi5p_1$Title <- NA
+datos_coi5p_1$Authors <- NA
+datos_coi5p_1$Journal <- NA
 
 # Recorrer solo los IDs válidos
 for (i in seq_along(valid_ids)) {
@@ -129,16 +127,16 @@ for (i in seq_along(valid_ids)) {
     
     
     # Guardar resultados en las columnas de datos_coi5p (asignar en la fila correcta)
-    caprella_1$Title[caprella_1$genbank_id == id] <- title
-    caprella_1$Authors[caprella_1$genbank_id == id] <- authors
-    caprella_1$Journal[caprella_1$genbank_id == id] <- journal
+    datos_coi5p_1$Title[datos_coi5p_1$genbank_id == id] <- title
+    datos_coi5p_1$Authors[datos_coi5p_1$genbank_id == id] <- authors
+    datos_coi5p_1$Journal[datos_coi5p_1$genbank_id == id] <- journal
   }
 }
 
 
 ##########################################################################
 ####FILTRAR SECUENCIAS ASOCIADAS A ARTICULOS CIENTIFICOS##################
-caprella_2 <- caprella_1 %>%
+cdatos_coi5p_1 <- datos_coi5p_1 %>%
   filter(!(trace_names == "" & Journal == "Unpublished"))
 
 
